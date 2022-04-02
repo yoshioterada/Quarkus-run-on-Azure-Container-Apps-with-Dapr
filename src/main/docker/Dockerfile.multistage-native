@@ -1,0 +1,32 @@
+####
+# This docker image is a multi-stage image that first build the apps with Maven then create the image.
+#
+# To build it :
+# docker build -f src/main/docker/Dockerfile -t loicmathieu/quarkus-demo .
+#
+# Then run the container using:
+# docker run -ti --rm -p 8080:8080 loicmathieu/quarkus-demo
+###
+
+## Stage 1 : build with maven builder image with native capabilities
+FROM adoptopenjdk/maven-openjdk11 as BUILD
+
+RUN mkdir /usr/src
+RUN mkdir /usr/src/app  
+COPY --chown=1000 src /usr/src/app/src
+COPY --chown=1000 pom.xml /usr/src/app
+WORKDIR /usr/src/app
+ 
+USER 1000
+# we will build a native image using the native maven profile
+RUN mvn -f /usr/src/app/pom.xml -Pnative clean package
+
+## Stage 2 : create the docker final image form a distroless image !
+FROM mcr.microsoft.com/openjdk/jdk:11-cbld
+
+ENV LANG='ja_JP.UTF-8' LANGUAGE='ja_JP:ja'
+
+# we copy from the previous build the artifacts
+COPY --from=BUILD /usr/src/app/target/*-runner /application
+EXPOSE 8080
+ENTRYPOINT ["./application", "-Dquarkus.http.host=0.0.0.0"]

@@ -1,0 +1,11 @@
+componentType: state.redis
+version: v1
+metadata:
+- name: redisHost
+  value: joad.redis.cache.windows.net:6379
+- name: redisPassword
+  value: i53Gjdx*****************************ADLHKE=
+- name: actorStateStore
+  value: "true"
+scopes:
+- quarkus-msa-with-dapr
