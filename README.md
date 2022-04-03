@@ -482,15 +482,33 @@ CreatedTime                Active    TrafficWeight    Name
 仮に、新旧バージョンでリクエストのルーティング比率を変えを分散させたい場合は、`az containerapp revision set-mode` コマンドで `multiple` を指定し実行します。すると複数のインスタンスを `Active` にする事ができるようになります。
 
 ```azurecli
-az containerapp revision set-mode --mode multiple  --name $APPLICATION_NAME  \       
+az containerapp revision set-mode --mode multiple  --name $APPLICATION_NAME  \
   --resource-group  $RESOURCE_GROUP
+```
+
+次に非アクティブになっているインスタンス `quarkus-micro-service--jr4tixl` をアクティブ化します。
+
+```azurecli
+az containerapp revision activate \
+  --revision quarkus-micro-service--jr4tixl \
+  --name $APPLICATION_NAME  \
+  --resource-group  $RESOURCE_GROUP
+```
+
+コマンドを実行すると両方のインスタンスがアクティブになります。
+
+```text
+CreatedTime                Active    TrafficWeight    Name
+-------------------------  --------  ---------------  ------------------------------
+2022-04-02T04:34:35+00:00  True      0                quarkus-micro-service--jr4tixl
+2022-04-02T06:08:23+00:00  True      100              quarkus-micro-service--g9x6s1u
 ```
 
 複数のインスタンスを `Active` に変更した後、ルーティングの比率を変更します。
 
 ```azurecli
-az containerapp ingress traffic set \   
-  --name $APPLICATION_NAME \                                            
+az containerapp ingress traffic set \
+  --name $APPLICATION_NAME \
   --resource-group  $RESOURCE_GROUP \
   --traffic-weight \
     quarkus-micro-service--jr4tixl=50 \
@@ -501,7 +519,7 @@ az containerapp ingress traffic set \
 
 ```azurecli
 az containerapp revision list \
-  -n $APPLICATION_NAME \                                            
+  -n $APPLICATION_NAME \
   --resource-group $RESOURCE_GROUP \
   -o table
 
@@ -515,7 +533,7 @@ CreatedTime                Active    TrafficWeight    Name
 新しいバージョンで問題ない事を確認し稼働が安定した後、全リクエストを新しいインスタンスに割り当てます。
 
 ```azurecli
-az containerapp ingress traffic set \   
+az containerapp ingress traffic set \
   --name $APPLICATION_NAME \
   --resource-group  $RESOURCE_GROUP \
   --traffic-weight \
