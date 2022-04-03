@@ -246,7 +246,7 @@ public class Main {
     @GET
     @Produces(MediaType.TEXT_PLAIN)
     public String hello() {
-        return "Hello Java on Azure !!";
+        return "Hello RESTEasy";
     }
 }
 ```
