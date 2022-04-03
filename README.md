@@ -402,7 +402,6 @@ __  ____  __  _____   ___  __ ____  ______ 　PrimaryResult
 > アプリケーション・ログの確認方法は現在決して多くなく、将来的に改善される事を期待しています。  
 > Enhancement Request: [Logging of Containers hosted in Container Apps](https://github.com/microsoft/azure-container-apps/issues/49)
 
-## デモはここから
 
 ### 11. Azure Container App インスタンスの更新
 
@@ -754,7 +753,7 @@ az containerapp create \
 本アプリケーションでは Swagger UI を利用できるように設定しています。そこでブラウザから下記の URL にアクセスすると Swagger UI 経由で RESTful エンドポイントにアクセスができます。
 
 ```text
-https://quarkus-micro-service.livelyriver-edab7c68.eastus.azurecontainerapps.io/q/swagger-ui
+https://quarkus-micro-service-dapr.blackfield-e0bd3058.eastus.azurecontainerapps.io//q/swagger-ui
 ```
 
 また、curl コマンドで直接アクセスをして状態データを保存する事ができます。
