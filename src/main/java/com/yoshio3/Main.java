@@ -23,7 +23,7 @@ public class Main {
     @GET
     @Path("/hello")
     public String hello() {
-        return "Hello from GitHub Action　2";
+        return "Hello from GitHub Action 3";
     }
 
     @Inject
