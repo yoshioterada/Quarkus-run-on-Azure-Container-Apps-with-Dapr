@@ -2,12 +2,10 @@ name: Trigger auto deployment for containerapps
 
 # When this action will be executed
 on:
-  # Automatically trigger it when detected changes in repo
   push:
-    branches: 
-      [ main ]
-    paths:
-    - './**'
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
   # Allow mannually trigger 
   workflow_dispatch:      
