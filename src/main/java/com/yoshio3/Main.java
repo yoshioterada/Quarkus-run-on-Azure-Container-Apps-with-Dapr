@@ -1,7 +1,10 @@
 package com.yoshio3;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -23,7 +26,7 @@ public class Main {
     @GET
     @Path("/hello")
     public String hello() {
-        return "Hello from GitHub Action 2";
+        return "Hello from local";
     }
 
     @Inject
@@ -56,5 +59,31 @@ public class Main {
             response = Response.status(500).entity("{\"message :\" \"Some problem happen\"}").build();
         }
         return response;
+    }
+
+    @Inject
+    @RestClient
+    RestClientDebug debug;
+
+    @GET
+    @Path("/invoke/{applicationID}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response  invokeService(@PathParam("applicationID") String appID) {
+        return debug.invokeService(appID);
+    }
+
+    @GET
+    @Path("/healthCheck")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response  healthCheck() {
+        return debug.healthCheck();
+    }
+
+    @GET
+    @Path("/env")
+    public String getEnv(){
+        ArrayList<Entry<String, String>> arrayList = new ArrayList<>(System.getenv().entrySet());
+        arrayList.sort(Entry.comparingByKey());
+        return arrayList.toString();     
     }
 }
