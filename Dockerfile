@@ -12,21 +12,18 @@
 # LOG_ANALYTICS_WORKSPACE="joad-container-apps-logs"
 # CONTAINERAPPS_ENVIRONMENT="joad-environment"
 ######################################################
-#
-# az containerapp create \
-#   --name dapper-state-java$COUNTER \
+# 
+# az containerapp update \
+#   --name  $APPLICATION_NAME \
 #   --resource-group $RESOURCE_GROUP \
-#   --environment $CONTAINERAPPS_ENVIRONMENT \
-#   --image yoshio.azurecr.io/tyoshio2002/quarkus-msa:$COUNTER \
-#   --target-port 8080 \
-#   --ingress 'external' \
-#   --min-replicas 1 \
-#   --max-replicas 1 \
-#   --enable-dapr \
-#   --dapr-app-port 3500 \
-#   --dapr-app-id dapper-java$COUNTER \
-#   --dapr-components ./components.yaml
+#   --image yoshio.azurecr.io/tyoshio2002/quarkus-msa:$COUNTER
 
+# az monitor log-analytics query \
+#   -w $LOG_ANALYTICS_WORKSPACE_CLIENT_ID  \
+#   --analytics-query "ContainerAppConsoleLogs_CL|  \
+#     where TimeGenerated > ago(2m) | \
+#     where ContainerAppName_s == '$APPLICATION_NAME' \
+#     | project Log_s | take 200" -o tsv
 
 # curl -v -X 'POST' \
 #   'https://DAPR_INSTANCE_NAME.eastus.azurecontainerapps.io/post' \
