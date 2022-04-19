@@ -745,7 +745,7 @@ az containerapp create \
   --cpu 1 --memory 2.0Gi \
   --min-replicas 1 --max-replicas 4 \
   --enable-dapr \
-  --dapr-app-port 3500 \
+  --dapr-app-port 8080 \
   --dapr-app-id $APPLICATION_NAME 
 ```
 
