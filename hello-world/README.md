@@ -486,3 +486,4 @@ Hello Quarkus on Azure Contaienr Apps!!
 
 ## まとめ
 
+今回は、Quarkus のネィティブ・アプリケーションをコンテナで作成し Azure Container Apps にデプロイする方法を紹介しました。ログ・アナリティクスを利用してログを確認したり、シェル・スクリプトを作成して更新を簡単にすることができました。次は、[Azure Container Apps で Dapr を利用した Service 間呼び出し](../service-invocation/README.md)を行います。
