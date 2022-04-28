@@ -62,7 +62,7 @@ mvn io.quarkus.platform:quarkus-maven-plugin:2.8.2.Final:create \
     -DprojectArtifactId=hello-world
 ```
 
-コマンドを実行すると `quarkus-msa` ディレクトリが作成され下記のようなファイルが自動生成されます。
+コマンドを実行すると `hello-world` ディレクトリが作成され下記のようなファイルが自動生成されます。
 
 ```bash
 cd hello-world
