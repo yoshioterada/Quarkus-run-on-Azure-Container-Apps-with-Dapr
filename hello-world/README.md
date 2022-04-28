@@ -1,4 +1,4 @@
-# はじめての Qurkus のネィティブ・イメージ on Azure Container Apps
+# はじめての Qurkus ネィティブ・イメージ on Azure Container Apps
 
 ## はじめに
 
