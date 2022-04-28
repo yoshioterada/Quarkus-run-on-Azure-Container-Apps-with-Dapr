@@ -101,7 +101,7 @@ cd hello-world
 
 ### 2. Quarkus のネィティブイメージ作成用の Dockerfile を作成
 
-今回作成するサービスは [Graal VM](https://www.graalvm.org/) を利用し、コンテナ上で動作させるために Linux のネィティブ・バイナリを作成します。
+今回作成するサービスは [Graal VM](https://www.graalvm.org/) を利用し Linux のネィティブ・バイナリを作成します。
 ネィティブ・バイナリは通常コンパイルする環境用に構築され、Windows なら Windows, Mac なら Mac、Linux なら Linux 用の実行バイナリが生成されます。
 
 上記の Quarkus のプロジェクト作成時に自動的にいくつかの Dockerfile が生成されますが、今回は Docker のマルチステージ・ビルドで、ソースコードのコンパイルからコンテナイメージの作成までを行います。
@@ -144,9 +144,7 @@ CMD ["./application", "-Dquarkus.http.host=0.0.0.0"]
 ```
 
 > 注意：  
-> 上記の Dockerfile に下記の追記箇所がありますのでご注意ください。 Quarkus のコンテナ・イメージ (quarkus-micro-image) は Red Hat の Universal Base Image がベースになっています。
-> デフォルトでタイムゾーンが日本時間に設定されていないため、アプリケーション・ログを確認すると
-> 時間がずれるなどの不具合があります。そこでタイムゾーンを変更しています。
+> 上記の Dockerfile に下記の追記箇所がありますのでご注意ください。 Quarkus のコンテナ・イメージ (`quarkus-micro-image`) は Red Hat の Universal Base Image がベースになっています。デフォルトでタイムゾーンが日本時間に設定されていないため、アプリケーション・ログを確認すると 時間がずれるなどの不具合があります。そこでタイムゾーンを変更しています。
 
 ```text
 ## Set TimeZone
@@ -200,8 +198,9 @@ docker build -f Dockerfile -t tyoshio2002/hello-world:1.0 .
 これをご確認いただくとわかるように、コンテナのイメージサイズが 100MB 程度で、Java のコンテナイメージとしては比較的小さなイメージができていることが確認できます。
 
 ```bash
-docker images|grep hello-world 
-tyoshio2002/hello-world                           1.0              af977612bd02   33 minutes ago   130MB
+docker images 
+REPOSITORY                TAG    IMAGE ID       CREATED          SIZE
+tyoshio2002/hello-world   1.0    af977612bd02   33 minutes ago   130MB
 ```
 
 最後に、Quarkus の Web アプリケーションが正しく動作するかを確認します。`docker run` コマンドを実行し、コンテナを起動してください。Quarkus はデフォルトで `8080` 番ポートで HTTP ポートをオープンしています。そこで `8080` 番ポートに外部からアクセスできるように引数を指定しています。
@@ -254,13 +253,12 @@ docker push yoshio.azurecr.io/tyoshio2002/hello-world:1.0
 az acr build -t  tyoshio2002/hello-world:1.1 -r ACR_NAME -g $RESOURCE_GROUP .
 ```
 
-これは、ローカルの環境で docker デスクトップ等をインストールしていない場合にリモートでビルドを行い、そのまま `Azure Container Registry` にイメージをプッシュできるためとても便利です。
+これは、リモートの Azure Container Registry 上でコンテナのビルドを行い、そのままイメージをプッシュできるため、とても便利です。特に、ローカル環境で Docker デスクトップをインストールしていない、もしくはできないような場合に有効です。
 
-
-最後に、Azure Container Registry に正しくイメージが登録されているかを `az acr repository show` コマンドで確認してください。正しくアップロードされている場合、下記のような結果が表示されます。
+最後に、Azure Container Registry に正しくイメージがプッシュされているかを確認するため `az acr repository show` コマンドを実行してください。正しくアップロードされている場合、下記のような結果が表示されます。
 
 ```azurecli
-az acr repository show -n yoshio --image tyoshio2002/back-service:1.0
+az acr repository show -n $YOUR_AZURE_CONTAINER_REGISTRY --image tyoshio2002/hello-world:1.0
 {
   "changeableAttributes": {
     "deleteEnabled": true,
@@ -277,11 +275,12 @@ az acr repository show -n yoshio --image tyoshio2002/back-service:1.0
 }
 ```
 
-以上で、Quarkus で実装した Java の Web アプリケーションをコンテナ・レジストリにプッシュしたので、ここから実際に、Azure Container Apps の環境を作成したいと思います。
+以上で、Quarkus で実装した Java の Web アプリケーションをコンテナ化し、コンテナ・レジストリにコンテナ・イメージをプッシュしました。そこで、ここから実際に、Azure Container Apps の環境を作成したいと思います。
 
 ### 5. 構築時に必要な各種名前を環境変数に設定
 
-以降で、実際に Azure Container Apps を作成していきます。今度コマンド実行時に繰り返し指定する各種サービス名を事前に環境変数に設定しておきます。具体的には、`リソース・グループ名`、`インストール場所`、`ログ・アナリティクスのワークスペース名`、`Container Apps Env` の名前を環境変数に設定します。
+以降で、実際に Azure Container Apps を作成していきます。  
+まず、コマンド実行時に繰り返し指定する名前を環境変数に設定します。
 
 ```bash
 export RESOURCE_GROUP="ms-love-java"
@@ -290,6 +289,8 @@ export LOG_ANALYTICS_WORKSPACE="jjug-containerapps-logs"
 export CONTAINERAPPS_ENVIRONMENT="jjug-env"
 export APPLICATION_NAME="hello-service"
 ```
+
+上記はそれぞれ、`リソース・グループ名`、`インストール場所`、`ログ・アナリティクスのワークスペース名`、`Container Apps 環境名`、`アプリケーション名` を設定しています。
 
 > 注意：  
 > 上記の各種サービス名は適宜修正をしてください。
@@ -323,7 +324,7 @@ LOG_ANALYTICS_WORKSPACE_CLIENT_ID=`az monitor log-analytics workspace show --que
 LOG_ANALYTICS_WORKSPACE_CLIENT_SECRET=`az monitor log-analytics workspace get-shared-keys --query primarySharedKey -g $RESOURCE_GROUP -n $LOG_ANALYTICS_WORKSPACE -o tsv | tr -d '[:space:]'`
 ```
 
-### 8. Azure Container Apps Environment の作成
+### 8. Azure Container Apps 環境の作成
 
 まず、Azure Container Apps の環境を構築します。ここで構築する環境は、セキュリティに保護されたコンテナ・アプリケーションの境界が作成されます。 同じ環境上にデプロイした Container Apps は、同一仮想ネットワークや同一 Log Analytics ワークスペースを利用します。
 
@@ -358,7 +359,9 @@ az containerapp create \
 コマンドが正常に完了すると、下記のように外部から接続可能な URL が表示されます。
 
 ```text
-Container app created. Access your app at https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/
+Container app created. 
+Access your app at 
+https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/
 ```
 
 表示された URL に対して、ブラウザもしくは `curl` コマンドなどでアクセスしてください。
@@ -412,9 +415,9 @@ __  ____  __  _____   ___  __ ____  ______ 	PrimaryResult
 > Enhancement Request: [Logging of Containers hosted in Container Apps](https://github.com/microsoft/azure-container-apps/issues/49)
 
 
-## 11. アプリケーションの更新
+### 11. アプリケーションの更新
 
-上記では、Quarkus のプロジェクトを作成した際にデフォルトで作成された Java のソースコードをそのまま利用しました。そこで一部のコードを修正して Azure Container Apps のインスタンスを更新します。`Main.java` ファイルを開き返信される文字列を `Hello Quarkus on Azure Contaienr Apps!!` のように書き換えてみましょう。
+上記では、Quarkus のプロジェクトを作成した際にデフォルトで作成された Java のソースコードをそのまま利用しました。そこで一部のコードを修正して Azure Container Apps のインスタンスを更新します。`Main.java` ファイルを開き文字列を書き換えてみましょう。
 
 ```java
 @Path("/hello")
@@ -478,6 +481,8 @@ chmod 755 build.sh
 ./build.sh 1.1
 ```
 
+シェル・スクリプトを実行すると、コンテナ・イメージの作成、コンテナ・レジストリへのプッシュ、Azure Container Apps インスタンスの更新が全て行われます。
+
 更新が完了したのち、先ほど作成したアプリケーションのインスタンスと同じ URL にアクセスしてください。
 
 ```bash
@@ -485,11 +490,11 @@ curl https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/h
 Hello Quarkus on Azure Contaienr Apps!!
 ```
 
-プログラムで修正された文字列が表示されていることを確認できます。
+プログラムで修正した文字列が表示されていることが確認できます。
 
 ### 12. リビジョン管理
 
-現在、最初にデプロイしたバージョンと、プログラムを修正した新しいバージョンの２つのバージョンをデプロイしています。現在デプロイされているリビジョンの一覧を確認する為に コマンドを実行してください。
+現時点で、最初にデプロイしたバージョンと、文字列を修正した新しいバージョンの２つのバージョンをデプロイしています。現在デプロイされているリビジョンの一覧を確認してください。
 
 ```azurecli
 az containerapp revision list \
@@ -507,8 +512,10 @@ CreatedTime                Active    TrafficWeight    Name
 2022-04-28T14:35:59+00:00  True      100              hello-service--medtdh6
 ```
 
-全リクエストが最新バージョンへルーティングされています。
-仮に、新旧バージョンでリクエストのルーティング比率を変えを分散させたい場合は、`az containerapp revision set-mode` コマンドで `multiple` を指定し実行します。すると複数のインスタンスを `Active` にする事ができるようになります。
+`TrafficWeight` の行を確認すると全リクエスト (100%) が最新バージョンへ振り分けられています。
+仮に、新旧バージョンでリクエストのルーティング比率を変えたい場合は、下記の手順で変更できます。
+
+まず、`az containerapp revision set-mode` コマンドで `multiple` を指定し実行します。すると複数のインスタンスを同時に `Active` にできます。
 
 ```azurecli
 az containerapp revision set-mode --mode multiple  --name $APPLICATION_NAME  \
@@ -516,7 +523,7 @@ az containerapp revision set-mode --mode multiple  --name $APPLICATION_NAME  \
 ```
 
 次に非アクティブになっているインスタンス `hello-service--nxgb5ib` をアクティブ化します。
-`az containerapp revision activate` コマンドを実行しインスタンスをアクティブにします。
+`az containerapp revision activate` コマンドを実行しアクティブにします。
 
 ```azurecli
 az containerapp revision activate \
@@ -525,7 +532,7 @@ az containerapp revision activate \
   --resource-group  $RESOURCE_GROUP
 ```
 
-再度、リビジョンの一覧を確認する為に `az containerapp revision list` コマンドを実行してください。
+再度、リビジョンの一覧を確認してください。
 
 ```azurecli
 az containerapp revision list \
@@ -534,7 +541,7 @@ az containerapp revision list \
   -o table
 ```
 
-実行すると下記のように両方のインスタンスの `Active` の列が  `True` にかわります。
+実行すると両方のインスタンスの `Active` 列が  `True` にかわります。
 
 ```text
 CreatedTime                Active    TrafficWeight    Name
@@ -543,7 +550,7 @@ CreatedTime                Active    TrafficWeight    Name
 2022-04-28T14:35:59+00:00  True      100              hello-service--medtdh6
 ```
 
-複数のインスタンスを `Active` に変更した後、ルーティングの比率を変更します。
+複数のインスタンスを `Active` に変更した後、ルーティングの比率 (50:50) を変更します。
 
 ```azurecli
 az containerapp ingress traffic set \
@@ -572,7 +579,7 @@ CreatedTime                Active    TrafficWeight    Name
 2022-04-28T14:35:59+00:00  True      50               hello-service--medtdh6
 ```
 
-リクエストの振り分け比率を変更した後、実際にエンドポイントにアクセスしてみます。すると下記のようにリクエストが振り分けられている事を確認できます。
+リクエストの振り分け比率を変更した後、実際にエンドポイントにアクセスしてみます。するとリクエストがそれぞれのインスタンスに振り分けられている事を確認できます。
 
 ```bash
 % curl https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/hello
@@ -618,7 +625,7 @@ az containerapp revision list \
    -o table
 ```
 
-コマンドの実行結果を確認すると、古いインスタンスの `Active` 項目が `False` になり `TrafficWeight` の数も `0` になっている事が確認できます。
+コマンドの実行結果を確認すると、古いインスタンスの `Active` 項目が `False` になり `TrafficWeight` も `0` になっている事が確認できます。
 
 ```text
 CreatedTime                Active    TrafficWeight    Name
