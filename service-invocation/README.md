@@ -1,4 +1,4 @@
-# Dapr を利用した Service 間の呼び出し
+# Azure Container Apps で Dapr を利用した Service 間呼び出し
 
 ![Service Invocation of Dapr](./images/dapr-service-invocation.png)
 
