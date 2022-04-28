@@ -139,9 +139,6 @@ docker tag tyoshio2002/back-service:1.0 yoshio.azurecr.io/tyoshio2002/back-servi
 docker push yoshio.azurecr.io/tyoshio2002/back-service:1.0
 ```
 
-> 注意：  
-> コンテナをビルドするために、`.dockerignore` ファイルが存在している場合、ファイルのコピーに失敗します。そこで今回はこのファイルを削除します。
-
 Azure Container Registry に `back-service` が追加されているか否か確認します。
 
 ```azurecli
@@ -173,12 +170,14 @@ az acr repository show -n $YOUR_CONTAINER_REGISTRY_NAME --image tyoshio2002/back
 今回作成する Azure Container Apps `のリソース・グループ`と`コンテナ環境`を環境変数に設定します。
 
 ```bash
-export RESOURCE_GROUP="joad-container-apps"
-export CONTAINERAPPS_ENVIRONMENT="joad-env"
+export RESOURCE_GROUP="ms-love-java"
+export LOCATION="eastus"
+export LOG_ANALYTICS_WORKSPACE="jjug-containerapps-logs"
+export CONTAINERAPPS_ENVIRONMENT="jjug-env"
 ```
 
 > ご注意:  
-> Azure Container Apps を作成するために必要なログ・アナリティクスの構築方法やコンテナ環境の作成に関する詳細は[こちら](http://localhost)をご覧ください。
+> Azure Container Apps を作成するために必要なログ・アナリティクスの構築方法やコンテナ環境の作成に関する詳細は[こちら](../hello-world/README.md)をご覧ください。
 
 `az containerapp create` コマンドを実行し、Azure Container Apps のインスタンスを作成してください。
 
@@ -241,8 +240,8 @@ export VERSION=$1
 # Config Parameter (Need Change This Value !!) 
 ###################################
 APPLICATION_NAME="back-service"
-RESOURCE_GROUP="joad-container-apps"
-CONTAINERAPPS_ENVIRONMENT="joad-env"
+export RESOURCE_GROUP="ms-love-java"
+export CONTAINERAPPS_ENVIRONMENT="jjug-env"
 
 DOCKER_IMAGE=tyoshio2002/$APPLICATION_NAME
 DOCKER_REPOSITORY=yoshio.azurecr.io
@@ -263,13 +262,12 @@ az containerapp update \
  --image $DOCKER_REPOSITORY/$DOCKER_IMAGE:$VERSION
 ```
 
-
 ## Front Service の作成
 
 続いて、`Front Service` を実装します。下記のコマンドを実行し、プロジェクトを作成してください。
 
 > 注意:  
-> `Back Service` を HTTP で呼び出すために RESTClient の Extension ライブラリを追加しています。
+> `Back Service` を HTTP で呼び出すために RESTClient の Extension ライブラリ (`rest-client` , `rest-client-jackson`) を追加しています。
 
 ```bash
 mvn io.quarkus.platform:quarkus-maven-plugin:2.8.2.Final:create \
@@ -310,6 +308,9 @@ public interface MyRemoteService {
 上記の RESTClient の実装を行うことで、下記の URL エンドポイントにアクセスし、Dapr 経由で `back-service` の `hello-service` メソッドを呼び出します。`back-service` は Azure Container Apps のインスタンス作成時に指定した名前です。
 
 `http://localhost:3500/v1.0/invoke/back-service/method/hello-service`
+
+> 注意：  
+> Dapr のリモート・サービスの呼び出しに関する詳細は [Service invocation API reference](https://docs.dapr.io/reference/api/service_invocation_api/) をご参照ください。
 
 上記 `MyRemoteService.java` の実装中で `@RegisterProvider` アノテーションを付加し、リクエストやレスポンスをインターセプトするクラス`RestClientRequestFilter.class` を指定しています。これにより、正しくリクエストやレスポンスが正しく生成されているかを確認するなど、追加処理を行うことが可能です。必要に応じて実装してください。
 
@@ -412,9 +413,9 @@ public class BackData {
 ```bash
 VERSION=1.0
 
-APPLICATION_NAME="front-service2"
-RESOURCE_GROUP="joad-container-apps"
-CONTAINERAPPS_ENVIRONMENT="joad-env"
+APPLICATION_NAME="front-service"
+export RESOURCE_GROUP="ms-love-java"
+export CONTAINERAPPS_ENVIRONMENT="jjug-env"
 
 DOCKER_IMAGE=tyoshio2002/$APPLICATION_NAME
 DOCKER_REPOSITORY=yoshio.azurecr.io
