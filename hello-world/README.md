@@ -45,6 +45,8 @@ Quarkus は、Jakarta EE や MicroProfile で培った技術が利用可能な�
 8. Azure Container App Environment の作成
 9. Azure Container App のインスタンスを作成
 10. ログの確認（クエリの実行）
+11.  アプリケーションの更新
+12.  リビジョン管理
 
 ## Azure Container Apps にデプロイするまで
 
@@ -483,6 +485,150 @@ Hello Quarkus on Azure Contaienr Apps!!
 ```
 
 プログラムで修正された文字列が表示されていることを確認できます。
+
+### 12. リビジョン管理
+
+現在、最初にデプロイしたバージョンと、プログラムを修正した新しいバージョンの２つのバージョンをデプロイしています。現在デプロイされているリビジョンの一覧を確認する為に コマンドを実行してください。
+
+```azurecli
+az containerapp revision list \
+  -n $APPLICATION_NAME \
+  --resource-group $RESOURCE_GROUP \
+  -o table
+```
+
+実行すると、下記のようにリビジョンの一覧を確認できます。
+
+```text
+CreatedTime                Active    TrafficWeight    Name
+-------------------------  --------  ---------------  ----------------------
+2022-04-28T14:06:33+00:00  False     0                hello-service--nxgb5ib
+2022-04-28T14:35:59+00:00  True      100              hello-service--medtdh6
+```
+
+全リクエストが最新バージョンへルーティングされています。
+仮に、新旧バージョンでリクエストのルーティング比率を変えを分散させたい場合は、`az containerapp revision set-mode` コマンドで `multiple` を指定し実行します。すると複数のインスタンスを `Active` にする事ができるようになります。
+
+```azurecli
+az containerapp revision set-mode --mode multiple  --name $APPLICATION_NAME  \
+  --resource-group  $RESOURCE_GROUP
+```
+
+次に非アクティブになっているインスタンス `hello-service--nxgb5ib` をアクティブ化します。
+`az containerapp revision activate` コマンドを実行しインスタンスをアクティブにします。
+
+```azurecli
+az containerapp revision activate \
+  --revision hello-service--nxgb5ib \
+  --name $APPLICATION_NAME  \
+  --resource-group  $RESOURCE_GROUP
+```
+
+再度、リビジョンの一覧を確認する為に `az containerapp revision list` コマンドを実行してください。
+
+```azurecli
+az containerapp revision list \
+  -n $APPLICATION_NAME \
+  --resource-group $RESOURCE_GROUP \
+  -o table
+```
+
+実行すると下記のように両方のインスタンスの `Active` の列が  `True` にかわります。
+
+```text
+CreatedTime                Active    TrafficWeight    Name
+-------------------------  --------  ---------------  ----------------------
+2022-04-28T14:06:33+00:00  True      0                hello-service--nxgb5ib
+2022-04-28T14:35:59+00:00  True      100              hello-service--medtdh6
+```
+
+複数のインスタンスを `Active` に変更した後、ルーティングの比率を変更します。
+
+```azurecli
+az containerapp ingress traffic set \
+  --name $APPLICATION_NAME \
+  --resource-group  $RESOURCE_GROUP \
+  --traffic-weight \
+  hello-service--nxgb5ib=50 \
+  hello-service--medtdh6=50
+```
+
+トラフィックの比率を変更したのち再度インスタンスの状態を確認してください。
+
+```azurecli
+az containerapp revision list \
+  -n $APPLICATION_NAME \
+  --resource-group $RESOURCE_GROUP \
+  -o table
+```
+
+コマンドを実行すると、下記の結果が得られます。
+
+```text
+CreatedTime                Active    TrafficWeight    Name
+-------------------------  --------  ---------------  ----------------------
+2022-04-28T14:06:33+00:00  True      50               hello-service--nxgb5ib
+2022-04-28T14:35:59+00:00  True      50               hello-service--medtdh6
+```
+
+リクエストの振り分け比率を変更した後、実際にエンドポイントにアクセスしてみます。すると下記のようにリクエストが振り分けられている事を確認できます。
+
+```bash
+% curl https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/hello
+Hello RESTEasy
+% curl https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/hello
+Hello Quarkus on Azure Contaienr Apps!!
+% curl https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/hello
+Hello RESTEasy
+% curl https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/hello
+Hello RESTEasy
+% curl https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/hello
+Hello RESTEasy
+% curl https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/hello
+Hello Quarkus on Azure Contaienr Apps!!
+```
+
+新しいバージョンで問題ない事を確認し、ある程度稼働が安定したのち、全リクエストを新しいインスタンスに割り当てます。新しいインスタンスに対して振り分け比率を 100% に設定します。
+
+```azurecli
+az containerapp ingress traffic set \
+  --name $APPLICATION_NAME \
+  --resource-group  $RESOURCE_GROUP \
+  --traffic-weight \
+    hello-service--nxgb5ib=0 \
+    hello-service--medtdh6=100
+```
+
+最後に、古いインスタンスを非アクティブに変更します。
+
+```azurecli
+az containerapp revision deactivate \
+  --revision hello-service--nxgb5ib \
+  --name $APPLICATION_NAME  \
+  --resource-group  $RESOURCE_GROUP
+```
+
+再度、リビジョンのリストを確認してください。
+
+```azurecli
+az containerapp revision list \
+   -n $APPLICATION_NAME \
+   --resource-group $RESOURCE_GROUP \
+   -o table
+```
+
+コマンドの実行結果を確認すると、古いインスタンスの `Active` 項目が `False` になり `TrafficWeight` の数も `0` になっている事が確認できます。
+
+```text
+CreatedTime                Active    TrafficWeight    Name
+-------------------------  --------  ---------------  ----------------------
+2022-04-28T14:06:33+00:00  False     0                hello-service--nxgb5ib
+2022-04-28T14:35:59+00:00  True      100              hello-service--medtdh6
+```
+
+> 注意：  
+> 新しくデプロイしたのは traffic rate 0 でデプロイしてほしかったのですが、仕様との事です。
+> Issue: [Request to have a functionality of the update with traffic weight=0](https://github.com/microsoft/azure-container-apps/issues/23)
 
 ## まとめ
 
