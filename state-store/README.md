@@ -1,4 +1,4 @@
-# Azure Container Apps 上で Qurkus のネィティブ・イメージを利用して高速に起動し、Dapr の状態管理を利用する
+# Dapr の状態管理を利用する - Quarkus on Azure Container Apps
 
 ## はじめに
 
