@@ -1,0 +1,488 @@
+# はじめての Qurkus のネィティブ・イメージ on Azure Container Apps
+
+## はじめに
+
+Azure Container Apps は、マイクロソフトが Microsoft Ignite 2021 のイベントで(2021/11/04)で発表した技術で、本記事執筆時点で(2022/3/24)パブリック・プレビュー版として、提供されています。
+本記事は、Azure Container Apps 上で Qurkus のネィティブ・イメージを利用して高速に起動し、Dapr の状態管理を利用する方法を紹介します。
+
+## Azure Container Apps について
+
+まず、初めに [Azure Container Apps](https://azure.microsoft.com/services/container-apps/) について簡単に紹介します。
+Azure Container Apps はマイクロサービスのようなモダンなアプリケーションを、サーバ・レスのコンテナ環境で動作させることが可能な技術です。内部的に動作するコンテナは Kubernetes 上で稼働しますが、Kubernetes を隠蔽しているため、Kuberenetes を意識することなくサービスを動作させる事ができるようになります。また、動かすのはコンテナになりますので、サービスを実装するプログラミング言語はどの言語でも良く、幅広くご利用いただく事ができます。
+
+どのような方にオススメかというと、たとえば、マイクロサービスのようなサービスをどんどんと増やしていきたい、そして既存のアプリケーションのバージョンアップも頻繁に行いたい、しかしその一方で Kubernetes に精通したエンジニアがいない、インフラの管理コストを下げたいと考えるような利用者に向くサービスになっています。もちろん、Kubernetes の全ての機能を利用できるわけではありません。ただ多くのシチュエーションにおいて Azure Container Apps が提供する機能で十分な場合もあります。現時点では本番環境での利用には向きませんが、サービスの正式リリース前に機能評価をしたいと考える技術者の皆様は、どうぞ本記事をご覧ください。
+
+## Azure Container Apps の大表的な機能
+
+Azure Container Apps が提供する代表的な機能を紹介します。
+
+* [任意のプログラミング言語で利用可能](https://docs.microsoft.com/azure/container-apps/containers)
+* [動作させるのはコンテナの為、比較的移植も用意](https://docs.microsoft.com/azure/container-apps/containers)
+* [Kubernetes を隠蔽化した技術で簡単で便利なコマンドを用意](https://docs.microsoft.com/azure/container-apps/get-started-existing-container-image?tabs=bash)
+* [サーバレスのため、動作するサーバのメンテナンス（パッチ適用など）は不要](https://docs.microsoft.com/azure/container-apps/environment)
+* [リビジョン管理機能を持ちカナリア・リリースが容易](https://docs.microsoft.com/azure/container-apps/revisions)
+* [新旧バージョンの入れ替えも容易](https://docs.microsoft.com/azure/container-apps/application-lifecycle-management)
+* [Dapr](https://docs.dapr.io/concepts/overview/) を統合するため、[Dapr を利用したマイクロサービスの実装が可能](https://docs.microsoft.com/azure/container-apps/microservices-dapr?tabs=bash)
+* [管理画面から GitHub 連携が可能で、GitHub Actions を利用した CI/CD が容易](https://docs.microsoft.com/azure/container-apps/github-actions-cli?tabs=bash)
+* [豊富なスケーリング機能を提供（HTTP トラフィック、CPU, メモリの他、イベントドリブンでも設定可能 KEDA)](https://docs.microsoft.com/azure/container-apps/scale-app)
+
+* 今後も正式リリースに向けて便利な機能が追加される事が予想されます。ぜひ最新動向をチェックしてください。
+
+## Quarkus について
+
+[Quarkus](https://quarkus.io/) は、Red Hat が主体となって開発をする Java のマイクロサービス開発用のフレームワークで、世界的に Java 業界では Spring に次ぐ人気となっています。
+Quarkus は、Jakarta EE や MicroProfile で培った技術が利用可能なため、以前から Java EE を利用していた方には扱いやすいライブラリになっています。
+
+## 本記事の進め方
+
+1. Quarkus のプロジェクトを作成し、必要な Extension を追加します
+2. Quarkus のネィティブイメージ作成用の Dockerfile を作成
+3. Docker イメージ作成
+4. Azure Container Registry にイメージをプッシュ
+5. 構築時に必要な各種名前を環境変数に設定
+6. リソース・グループを作成
+7. Log Analytics を作成
+8. Azure Container App Environment の作成
+9. Azure Container App のインスタンスを作成
+10. ログの確認（クエリの実行）
+
+## Azure Container Apps にデプロイするまで
+
+### 1. Quarkus プロジェクトの作成
+
+```bash
+mvn io.quarkus.platform:quarkus-maven-plugin:2.8.2.Final:create \
+    -DprojectGroupId=com.yoshio3 \
+    -DprojectVersion=1.0.0-SNAPSHOT \
+    -DclassName=com.yoshio3.Main \
+    -Dpath="/hello" \
+    -Dextensions="resteasy,resteasy-jackson" \
+    -DprojectArtifactId=hello-world
+```
+
+コマンドを実行すると `quarkus-msa` ディレクトリが作成され下記のようなファイルが自動生成されます。
+
+```bash
+cd hello-world
+```
+
+すると下記のようなファイルやディレクトリ構成が作成されています。
+
+```text
+├── README.md
+├── mvnw
+├── mvnw.cmd
+├── pom.xml
+└── src
+    ├── main
+    │   ├── docker
+    │   │   ├── Dockerfile.jvm
+    │   │   ├── Dockerfile.legacy-jar
+    │   │   ├── Dockerfile.native
+    │   │   └── Dockerfile.native-micro
+    │   ├── java
+    │   │   └── com
+    │   │       └── yoshio3
+    │   │           └── Main.java
+    │   └── resources
+    │       ├── META-INF
+    │       │   └── resources
+    │       │       └── index.html
+    │       └── application.properties
+    └── test
+        └── java
+            └── com
+                └── yoshio3
+                    ├── MainIT.java
+                    └── MainTest.java
+```
+
+### 2. Quarkus のネィティブイメージ作成用の Dockerfile を作成
+
+今回作成するサービスは Graal VM を利用したネィティブ・バイナリを作成するようにします。
+ネィティブ・バイナリは通常コンパイルする環境用に構築されるため、Windows なら Windows, Mac なら Mac、Linux なら Linux 用の実行バイナリが生成されます。（Linuxバイナリ生成用のオプションはある）
+今回コンテナ上で Java アプリケーションを起動する為、ソースコードのコンパイルも、コンテナのビルド時に Linux 環境で同時に行います。
+
+上記の Quarkus のプロジェクト作成時に自動的にいくつかの Dockerfile が生成されますが、今回は Docker のマルチステージ・ビルドで、ソースコードのコンパイルからコンテナイメージの作成までを行います。
+
+[BUILDING A NATIVE EXECUTABLE](https://quarkus.io/guides/building-native-image#multistage-docker) にマルチステージ・ビルドを行うための Dockerfile のサンプルが記載されていますので、これを参考にしてネィティブ・イメージを作成したいと思います。
+
+```text
+## Stage 1 : build with maven builder image with native capabi lities
+FROM quay.io/quarkus/ubi-quarkus-native-image:21.3.1-java11 AS build
+
+COPY --chown=quarkus:quarkus mvnw /code/mvnw
+COPY --chown=quarkus:quarkus .mvn /code/.mvn
+COPY --chown=quarkus:quarkus pom.xml /code/
+USER quarkus
+WORKDIR /code
+
+RUN ./mvnw -B org.apache.maven.plugins:maven-dependency-plugin:3.1.2:go-offline -Dmaven.repo.local=localrepos
+COPY src /code/src
+RUN ./mvnw package -Pnative -DskipTests -Dmaven.repo.local=localrepos
+
+## Stage 2 : create the docker final image
+FROM quay.io/quarkus/quarkus-micro-image:1.0
+WORKDIR /work/
+COPY --from=build /code/target/*-runner /work/application
+
+## Set TimeZone
+RUN ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+ENV TZ=Asia/Tokyo
+
+# set up permissions for user `1001`
+RUN chmod 775 /work /work/application \
+  && chown -R 1001 /work \
+  && chmod -R "g+rwX" /work \
+  && chown -R 1001:root /work
+
+EXPOSE 8080
+USER 1001
+
+CMD ["./application", "-Dquarkus.http.host=0.0.0.0"]
+```
+
+> 注意：  
+> 上記の Dockerfile には１点、下記の追記箇所がありますのでご注意ください。 Quarkus のコンテナ・イメージ (quarkus-micro-image) は Red Hat の Universal Base Image がベースになっています。タイムゾーンを変更するためには、下記の追加が必要です。出力されたログを確認する際に日本時間でログが確認できるようになるため追加しておきます。
+
+```text
+## Set TimeZone
+RUN ln -sf /usr/share/zoneinfo/Asia/Tokyo /etc/localtime
+ENV TZ=Asia/Tokyo
+```
+
+### 3. Docker イメージ作成
+
+上記の内容を Dockerfile というファイル名に記載した後、`docker build` コマンドでイメージを作成します。
+
+```bash
+docker build -f Dockerfile -t tyoshio2002/hello-world:1.0 .
+```
+
+はじめてコマンドを実行すると下記のようにファイルのコピーでエラーが発生するでしょう。
+
+```text
+ => ERROR [build 2/8] COPY --chown=quarkus:quarkus mvnw /code/mvnw                                 0.0s
+ => ERROR [build 3/8] COPY --chown=quarkus:quarkus .mvn /code/.mvn                                 0.0s
+ => ERROR [build 4/8] COPY --chown=quarkus:quarkus pom.xml /code/                                  0.0s
+```
+
+これは、Quarkus のプロジェクトを作成した際に、自動生成される `.dockerignore` というファイルが影響しているからです。
+ファイルの内容を確認すると下記のように記述されており、`target` ディレクトリ配下の一部を除く、全てのファイルが `COPY` できないようになっています。
+
+```text
+*
+!target/*-runner
+!target/*-runner.jar
+!target/lib/*
+!target/quarkus-app/*
+```
+
+今回は、`mvnw`, `.mvn`, `pom.xml`, `src` のファイルを `COPY` する為、`.dockerignore` ファイルを削除します。
+
+```bash
+rm .dockerignore
+```
+
+> ご注意：  
+`.dockerignore` ファイルが存在するために、ファイルの `ADD` や `COPY` ができない事象は、経験者でもたまに見落とす事があるため、どうぞご注意ください。
+
+これで、`docker build` コマンドを実行できるようになりましたので、コマンドを実行します。
+
+```bash
+docker build -f Dockerfile -t tyoshio2002/hello-world:1.0 .
+```
+
+正常に完了した後、イメージが正しく作成されているか `docker images` コマンドで確認してみましょう。
+これをご確認いただくとわかるように、コンテナのイメージサイズが 100MB 程度で、Java のコンテナイメージとしては比較的小さなイメージができていることが確認できます。
+
+```bash
+docker images|grep hello-world 
+tyoshio2002/hello-world                           1.0              af977612bd02   33 minutes ago   130MB
+```
+
+最後に、Quarkus の Web アプリケーションが正しく動作するかを確認します。`docker run` コマンドを実行し、コンテナを起動してください。Quarkus はデフォルトで `8080` 番ポートで HTTP ポートをオープンしています。そこで `8080` 番ポートに外部からアクセスできるように引数を指定しています。
+
+```bash
+docker run -p 8080:8080 -it  tyoshio2002/hello-world:1.0
+__  ____  __  _____   ___  __ ____  ______ 
+ --/ __ \/ / / / _ | / _ \/ //_/ / / / __/ 
+ -/ /_/ / /_/ / __ |/ , _/ ,< / /_/ /\ \   
+--\___\_\____/_/ |_/_/|_/_/|_|\____/___/   
+2022-04-28 22:41:22,686 INFO  [io.quarkus] (main) hello-world 1.0.0-SNAPSHOT native (powered by Quarkus 2.8.2.Final) started in 0.017s. Listening on: http://0.0.0.0:8080
+2022-04-28 22:41:22,686 INFO  [io.quarkus] (main) Profile prod activated. 
+2022-04-28 22:41:22,686 INFO  [io.quarkus] (main) Installed features: [cdi, resteasy, resteasy-jackson, smallrye-context-propagation, vertx]
+```
+
+コンテナが正常に起動できたのち、`curl` コマンドを実行してください。正しく動作している場合、`Hello RESTEasy` の文字が出力されます。
+
+```bash
+$ curl localhost:8080/hello
+Hello RESTEasy
+```
+
+この文字列は `src/main/java/com/yoshio3/Main.java` に記載されているコードが呼び出されています。
+
+```java
+@Path("/hello")
+public class Main {
+
+    @GET
+    @Produces(MediaType.TEXT_PLAIN)
+    public String hello() {
+        return "Hello RESTEasy";
+    }
+}
+```
+
+### 4. Azure Container Registry にイメージをプッシュ
+
+コンテナのイメージを作成したので、次にイメージにタグ付けを行い、Container Registry にプッシュします。
+コンテナのタグ付けを行うためには、`docker tag` コマンドを実行し、Container Registry にプッシュするために `docker push` コマンドを実行します。
+
+```bash
+docker tag  tyoshio2002/hello-world:1.0 yoshio.azurecr.io/tyoshio2002/hello-world:1.0
+docker push yoshio.azurecr.io/tyoshio2002/hello-world:1.0
+```
+
+仮に、コンテナ・レジストリとして `Azure Container Registry` を利用し `Azure CLI` コマンドを利用している場合は、コンテナ・イメージのデプロイからプッシュまでの一連の流れを下記のコマンド１回で実行できます。
+
+```azurecli
+az acr build -t  tyoshio2002/hello-world:1.1 -r ACR_NAME -g $RESOURCE_GROUP .
+```
+
+これは、ローカルの環境で docker デスクトップ等をインストールしていない場合にリモートでビルドを行い、そのまま `Azure Container Registry` にイメージをプッシュできるためとても便利です。
+
+
+最後に、Azure Container Registry に正しくイメージが登録されているかを `az acr repository show` コマンドで確認してください。正しくアップロードされている場合、下記のような結果が表示されます。
+
+```azurecli
+az acr repository show -n yoshio --image tyoshio2002/back-service:1.0
+{
+  "changeableAttributes": {
+    "deleteEnabled": true,
+    "listEnabled": true,
+    "readEnabled": true,
+    "writeEnabled": true
+  },
+  "createdTime": "2022-04-25T02:21:42.4321004Z",
+  "digest": "sha256:0564725591c905731b7f44f226610d1b7496aa755fb111c62f0e15cb950e9d97",
+  "lastUpdateTime": "2022-04-25T02:21:42.4321004Z",
+  "name": "1.0",
+  "quarantineState": "Passed",
+  "signed": false
+}
+```
+
+以上で、Quarkus で実装した Java の Web アプリケーションをコンテナ・レジストリにプッシュしたので、ここから実際に、Azure Container Apps の環境を作成したいと思います。
+
+### 5. 構築時に必要な各種名前を環境変数に設定
+
+以降で、実際に Azure Container Apps を作成していきます。今度コマンド実行時に繰り返し指定する各種サービス名を事前に環境変数に設定しておきます。具体的には、`リソース・グループ名`、`インストール場所`、`ログ・アナリティクスのワークスペース名`、`Container Apps Env` の名前を環境変数に設定します。
+
+```bash
+export RESOURCE_GROUP="ms-love-java"
+export LOCATION="eastus"
+export LOG_ANALYTICS_WORKSPACE="jjug-containerapps-logs"
+export CONTAINERAPPS_ENVIRONMENT="jjug-env"
+export APPLICATION_NAME="hello-service"
+```
+
+> 注意：  
+> 上記の各種サービス名は適宜修正をしてください。
+> 2022/3/25 現在 Azure Container Apps をインストールできるロケーションは `North Central US (Stage)`,`Canada Central`,`West Europe`,`North Europe`,`East US`,`East US 2` です
+
+### 6. リソース・グループを作成
+
+それでは、Azure Container Apps を管理するためのリソース・グループを作成しましょう。`az group create` コマンドを実行してリソース・グループを作成してください。
+
+```azurecli
+az group create \
+  --name $RESOURCE_GROUP \
+  --location $LOCATION
+```
+
+### 7. Log Analytics を作成
+
+次に、Azure Monitor Log Analytics を作成します。`az monitor log-analytics workspace create` コマンドを実行し作成してください。
+
+```azurecli
+az monitor log-analytics workspace create \
+  --resource-group $RESOURCE_GROUP \
+  --location $LOCATION  \
+  --workspace-name $LOG_ANALYTICS_WORKSPACE
+```
+
+Log Analytics のワーク・スペースの IDと接続用のパスワードを Container Apps の環境構築時に使用するため、ID などの情報を取得し環境変数に設定します。
+
+```text
+LOG_ANALYTICS_WORKSPACE_CLIENT_ID=`az monitor log-analytics workspace show --query customerId -g $RESOURCE_GROUP -n $LOG_ANALYTICS_WORKSPACE -o tsv | tr -d '[:space:]'`
+LOG_ANALYTICS_WORKSPACE_CLIENT_SECRET=`az monitor log-analytics workspace get-shared-keys --query primarySharedKey -g $RESOURCE_GROUP -n $LOG_ANALYTICS_WORKSPACE -o tsv | tr -d '[:space:]'`
+```
+
+### 8. Azure Container Apps Environment の作成
+
+まず、Azure Container Apps の環境を構築します。ここで構築する環境は、セキュリティに保護されたコンテナ・アプリケーションの境界が作成されます。 同じ環境上にデプロイした Container Apps は、同一仮想ネットワークや同一 Log Analytics ワークスペースを利用します。
+
+Azure Container Apps の環境を構築するため、`az containerapp env create` コマンドを実行してください。
+
+```azurecli
+az containerapp env create \
+  --name $CONTAINERAPPS_ENVIRONMENT \
+  --resource-group $RESOURCE_GROUP \
+  --logs-workspace-id $LOG_ANALYTICS_WORKSPACE_CLIENT_ID \
+  --logs-workspace-key $LOG_ANALYTICS_WORKSPACE_CLIENT_SECRET \
+  --location $LOCATION
+```
+
+### 9. Azure Container Apps のインスタンスを作成
+
+Azure Container Apps を構築するための準備が終わったので、Container Apps のインスタンスを作成します。`az containerapp create` コマンドを実行し Container Apps インスタンスを作成してください。
+
+```azurecli
+az containerapp create \
+  --name $APPLICATION_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --environment $CONTAINERAPPS_ENVIRONMENT \
+  --image yoshio.azurecr.io/tyoshio2002/hello-world:1.0\
+  --target-port 8080 \
+  --ingress 'external' \
+  --query 'configuration.ingress.fqdn' \
+  --cpu 1 --memory 2.0Gi \
+  --min-replicas 1 --max-replicas 4
+```
+
+コマンドが正常に完了すると、下記のように外部から接続可能な URL が表示されます。
+
+```text
+Container app created. Access your app at https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/
+```
+
+表示された URL に対して、ブラウザもしくは `curl` コマンドなどでアクセスしてください。
+
+```bash
+curl https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/hello
+Hello RESTEasy
+```
+
+正しくデプロイされている場合、`Hello RESTEasy` という文字列が表示されます。
+
+### 10. ログの確認（クエリの実行）
+
+Azure Container Apps 上でアプリケーションが動作しているので、アプリケーションのログを確認します。`az monitor log-analytics query` コマンドを実行してログを確認してみましょう。
+
+```azurecli
+az monitor log-analytics query \
+  -w $LOG_ANALYTICS_WORKSPACE_CLIENT_ID  \
+  --analytics-query "ContainerAppConsoleLogs_CL|
+    where TimeGenerated > ago(10m) |
+    where ContainerAppName_s == 'hello-service' |
+    project Log_s |
+    take 500" -o tsv
+```
+
+分かりやすくするため、クエリ部分だけを抽出すると下記のクエリを実行しています。
+
+```text
+ContainerAppConsoleLogs_CL|
+    where TimeGenerated > ago(10m) |
+    where ContainerAppName_s == 'hello-service' |
+    project Log_s |
+    take 500
+```
+
+コマンドを実行すると下記のような内容が表示されます。
+
+```text
+__  ____  __  _____   ___  __ ____  ______ 	PrimaryResult
+ --/ __ \/ / / / _ | / _ \/ //_/ / / / __/ 	PrimaryResult
+ -/ /_/ / /_/ / __ |/ , _/ ,< / /_/ /\ \   	PrimaryResult
+--\___\_\____/_/ |_/_/|_/_/|_|\____/___/   	PrimaryResult
+2022-04-28 23:06:43,998 INFO  [io.quarkus] (main) hello-world 1.0.0-SNAPSHOT native (powered by Quarkus 2.8.2.Final) started in 0.011s. Listening on: http://0.0.0.0:8080	PrimaryResult
+2022-04-28 23:06:43,999 INFO  [io.quarkus] (main) Profile prod activated. 	PrimaryResult
+2022-04-28 23:06:43,999 INFO  [io.quarkus] (main) Installed features: [cdi, resteasy, resteasy-jackson, smallrye-context-propagation, vertx]PrimaryResult
+```
+
+> 注意：Log Analytics で管理する `PrimaryResult` はテーブル名で実際のアプリケーション・ログではありません。  
+> Azure Portal からも同じクエリを実行しブラウザ上で確認することも可能です。
+> アプリケーション・ログの確認方法は現在決して多くなく、将来的に改善される事を期待しています。  
+> Enhancement Request: [Logging of Containers hosted in Container Apps](https://github.com/microsoft/azure-container-apps/issues/49)
+
+
+## 11. アプリケーションの更新
+
+上記では、Quarkus のプロジェクトを作成した際にデフォルトで作成された Java のソースコードをそのまま利用しました。そこで一部のコードを修正して Azure Container Apps のインスタンスを更新します。`Main.java` ファイルを開き返信される文字列を `Hello Quarkus on Azure Contaienr Apps!!` のように書き換えてみましょう。
+
+```java
+@Path("/hello")
+public class Main {
+
+    @GET
+    @Produces(MediaType.TEXT_PLAIN)
+    public String hello() {
+        return "Hello Quarkus on Azure Contaienr Apps!!";
+    }
+}
+```
+
+次に、Azure Container Apps インスタンスの更新を簡単にするために、シェル・スクリプト ( `build.sh`) を作成し下記の内容を記述してください。
+
+```bash
+#!/bin/bash
+set -e
+
+if [ "$1" = "" ]
+then
+    echo "./build.sh [version-number]"
+    exit 1
+fi
+export VERSION=$1
+
+# Config Parameter (Need Change This Value !!) 
+###################################
+export APPLICATION_NAME="hello-service"
+export RESOURCE_GROUP="ms-love-java"
+export CONTAINERAPPS_ENVIRONMENT="jjug-env"
+
+DOCKER_IMAGE=tyoshio2002/$APPLICATION_NAME
+DOCKER_REPOSITORY=yoshio.azurecr.io
+###################################
+
+###################################
+# Build docker image
+docker build -t $DOCKER_IMAGE:$VERSION . -f Dockerfile
+docker tag $DOCKER_IMAGE:$VERSION $DOCKER_REPOSITORY/$DOCKER_IMAGE:$VERSION
+# Push the image to Private Docker Registry
+docker push $DOCKER_REPOSITORY/$DOCKER_IMAGE:$VERSION
+
+###################################
+# Update Azure Container Apps Instance
+az containerapp update \
+ --name $APPLICATION_NAME \
+ --resource-group $RESOURCE_GROUP \
+ --image $DOCKER_REPOSITORY/$DOCKER_IMAGE:$VERSION
+```
+
+ファイルを作成した後、ファイルに実行権限を与えます。
+
+```bash
+chmod 755 build.sh
+```
+
+最後に、シェル・スクリプトを実行してください。
+
+```bash
+./build.sh 1.1
+```
+
+更新が完了したのち、先ほど作成したアプリケーションのインスタンスと同じ URL にアクセスしてください。
+
+```bash
+curl https://hello-service.orangeglacier-2ac553ea.eastus.azurecontainerapps.io/hello
+Hello Quarkus on Azure Contaienr Apps!!
+```
+
+プログラムで修正された文字列が表示されていることを確認できます。
+
+## まとめ
+
