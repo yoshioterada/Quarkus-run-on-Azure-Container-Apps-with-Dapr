@@ -62,13 +62,13 @@ mvn io.quarkus.platform:quarkus-maven-plugin:2.8.2.Final:create \
     -DprojectArtifactId=hello-world
 ```
 
-コマンドを実行すると `hello-world` ディレクトリが作成され下記のようなファイルが自動生成されます。
+コマンドを実行すると `hello-world` ディレクトリが作成されます。
 
 ```bash
 cd hello-world
 ```
 
-すると下記のようなファイルやディレクトリ構成が作成されています。
+ディレクトリの中に入ると下記のようなファイルやディレクトリ構成が作成されている事を確認できます。
 
 ```text
 ├── README.md
@@ -101,13 +101,12 @@ cd hello-world
 
 ### 2. Quarkus のネィティブイメージ作成用の Dockerfile を作成
 
-今回作成するサービスは Graal VM を利用したネィティブ・バイナリを作成するようにします。
-ネィティブ・バイナリは通常コンパイルする環境用に構築されるため、Windows なら Windows, Mac なら Mac、Linux なら Linux 用の実行バイナリが生成されます。（Linuxバイナリ生成用のオプションはある）
-今回コンテナ上で Java アプリケーションを起動する為、ソースコードのコンパイルも、コンテナのビルド時に Linux 環境で同時に行います。
+今回作成するサービスは [Graal VM](https://www.graalvm.org/) を利用し、コンテナ上で動作させるために Linux のネィティブ・バイナリを作成します。
+ネィティブ・バイナリは通常コンパイルする環境用に構築され、Windows なら Windows, Mac なら Mac、Linux なら Linux 用の実行バイナリが生成されます。
 
 上記の Quarkus のプロジェクト作成時に自動的にいくつかの Dockerfile が生成されますが、今回は Docker のマルチステージ・ビルドで、ソースコードのコンパイルからコンテナイメージの作成までを行います。
 
-[BUILDING A NATIVE EXECUTABLE](https://quarkus.io/guides/building-native-image#multistage-docker) にマルチステージ・ビルドを行うための Dockerfile のサンプルが記載されていますので、これを参考にしてネィティブ・イメージを作成したいと思います。
+[BUILDING A NATIVE EXECUTABLE](https://quarkus.io/guides/building-native-image#multistage-docker) にマルチステージ・ビルドを行うための Dockerfile のサンプルが記載されていますので、これを参考にしてネィティブ・イメージを作成します。
 
 ```text
 ## Stage 1 : build with maven builder image with native capabi lities
@@ -145,7 +144,9 @@ CMD ["./application", "-Dquarkus.http.host=0.0.0.0"]
 ```
 
 > 注意：  
-> 上記の Dockerfile には１点、下記の追記箇所がありますのでご注意ください。 Quarkus のコンテナ・イメージ (quarkus-micro-image) は Red Hat の Universal Base Image がベースになっています。タイムゾーンを変更するためには、下記の追加が必要です。出力されたログを確認する際に日本時間でログが確認できるようになるため追加しておきます。
+> 上記の Dockerfile に下記の追記箇所がありますのでご注意ください。 Quarkus のコンテナ・イメージ (quarkus-micro-image) は Red Hat の Universal Base Image がベースになっています。
+> デフォルトでタイムゾーンが日本時間に設定されていないため、アプリケーション・ログを確認すると
+> 時間がずれるなどの不具合があります。そこでタイムゾーンを変更しています。
 
 ```text
 ## Set TimeZone
