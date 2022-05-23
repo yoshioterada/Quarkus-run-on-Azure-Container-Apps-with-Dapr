@@ -44,9 +44,10 @@ Quarkus は、Jakarta EE や MicroProfile で培った技術が利用可能な�
 7. Log Analytics を作成
 8. Azure Container App Environment の作成
 9. Azure Container App のインスタンスを作成
-10. ログの確認（クエリの実行）
+10. ログの確認
 11.  アプリケーションの更新
 12.  リビジョン管理
+13.  コンソール・ログイン
 
 ## Azure Container Apps にデプロイするまで
 
@@ -665,6 +666,29 @@ CreatedTime                Active    TrafficWeight    Name
 > 注意：  
 > 新しくデプロイしたのは traffic rate 0 でデプロイしてほしかったのですが、仕様との事です。
 > Issue: [Request to have a functionality of the update with traffic weight=0](https://github.com/microsoft/azure-container-apps/issues/23)
+
+
+### 1３. コンソール・ログイン
+
+Azure CLI を利用してコンテナのコンソールに接続できるようになっています
+`az containerapp exec` コマンドを実行してください。
+
+```azurecli
+az containerapp exec --name $APPLICATION_NAME --resource-group $RESOURCE_GROUP   
+```
+
+実行すると下記のような結果が表示されます。
+
+```bash
+Command group 'containerapp' is in preview and under development. Reference and support levels: https://aka.ms/CLI_refstatus
+INFO: Connecting to the container 'hello-service'...
+Use ctrl + D to exit.
+INFO: Successfully connected to container: 'hello-service'. [ Revision: 'hello-service--hl8xrh6', Replica: 'hello-service--hl8xrh6-77b5f965d-ssh9l']
+sh-4.4$ uname -a
+Linux hello-service--hl8xrh6-77b5f965d-ssh9l 5.4.0-1078-azure #81~18.04.1-Ubuntu SMP Mon Apr 25 23:16:13 UTC 2022 x86_64 x86_64 x86_64 GNU/Linux
+sh-4.4$ ls
+application
+```
 
 ## まとめ
 
