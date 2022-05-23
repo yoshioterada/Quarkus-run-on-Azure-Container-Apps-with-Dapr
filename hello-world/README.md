@@ -375,7 +375,35 @@ Hello RESTEasy
 
 ### 10. ログの確認（クエリの実行）
 
-Azure Container Apps 上でアプリケーションが動作しているので、アプリケーションのログを確認します。`az monitor log-analytics query` コマンドを実行してログを確認してみましょう。
+Azure Container Apps 上でアプリケーションが動作しているので、アプリケーションのログを確認します。
+
+#### 10.1 Azure CLI コマンドによるログ・ストリームの確認
+
+`az containerapp logs show` コマンドを実行してログ・ストリームを確認してみましょう。
+
+```azurecli
+ az containerapp logs show --name $APPLICATION_NAME --resource-group $RESOURCE_GROUP   --tail 100
+```
+
+コマンドを実行すると下記の結果が表示されまs。
+
+```text
+Command group 'containerapp logs' is in preview and under development. Reference and support levels: https://aka.ms/CLI_refstatus
+{"TimeStamp":"2022-05-23T04:31:14.10523","Log":"Connecting to the container 'hello-service'..."}
+{"TimeStamp":"2022-05-23T04:31:14.12406","Log":"Successfully Connected to container: 'hello-service' [Revision: 'hello-service--hl8xrh6', Replica: 'hello-service--hl8xrh6-77b5f965d-ssh9l']"}
+{"TimeStamp":"2022-05-23T04:29:05.3103867+00:00","Log":"____  __  _____   ___  __ ____  ______"}
+{"TimeStamp":"2022-05-23T04:29:05.3104058+00:00","Log":"--/ __ \\/ / / / _ | / _ \\/ //_/ / / / __/"}
+{"TimeStamp":"2022-05-23T04:29:05.3104091+00:00","Log":"-/ /_/ / /_/ / __ |/ , _/ ,\u003C / /_/ /\\ \\"}
+{"TimeStamp":"2022-05-23T04:29:05.3104115+00:00","Log":"|_/_/|_/_/|_|\\____/___/"}
+{"TimeStamp":"2022-05-23T04:29:05.3104137+00:00","Log":"13:29:05,310 INFO  [io.quarkus] (main) hello-world 1.0.0-SNAPSHOT native (powered by Quarkus 2.8.2.Final) started in 0.011s. Listening on: http://0.0.0.0:8080"}
+{"TimeStamp":"2022-05-23T04:29:05.3104165+00:00","Log":"13:29:05,310 INFO  [io.quarkus] (main) Profile prod activated."}
+{"TimeStamp":"2022-05-23T04:29:05.3104324+00:00","Log":"13:29:05,310 INFO  [io.quarkus] (main) Installed features: [cdi, resteasy, resteasy-jackson, smallrye-context-propagation, vertx]"}
+
+```
+
+#### 10.2 Log Analytics に格納されているログを確認
+
+`az monitor log-analytics query` コマンドを実行してログを確認してみましょう。
 
 ```azurecli
 az monitor log-analytics query \
