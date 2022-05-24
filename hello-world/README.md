@@ -285,7 +285,7 @@ az acr repository show -n $YOUR_AZURE_CONTAINER_REGISTRY --image tyoshio2002/hel
 
 ```bash
 export RESOURCE_GROUP="ms-love-java"
-export LOCATION="eastus"
+export LOCATION="japaneast"
 export LOG_ANALYTICS_WORKSPACE="jjug-containerapps-logs"
 export CONTAINERAPPS_ENVIRONMENT="jjug-env"
 export APPLICATION_NAME="hello-service"
@@ -295,7 +295,7 @@ export APPLICATION_NAME="hello-service"
 
 > 注意：  
 > 上記の各種サービス名は適宜修正をしてください。
-> 2022/3/25 現在 Azure Container Apps をインストールできるロケーションは `North Central US (Stage)`,`Canada Central`,`West Europe`,`North Europe`,`East US`,`East US 2` です
+> 2022/5 現在 Azure Container Apps をインストールできるロケーションは `North Central US, Canada Central, West Europe, North Europe, East US, East US 2, East Asia, Australia East, Germany West Central, Japan East, UK South, West US` です
 
 ### 6. リソース・グループを作成
 
