@@ -9,8 +9,9 @@ fi
 export VERSION=$1
 
 APPLICATION_NAME="back-service"
-RESOURCE_GROUP="joad-container-apps"
-CONTAINERAPPS_ENVIRONMENT="joad-env"
+RESOURCE_GROUP="ms-love-java"
+CONTAINERAPPS_ENVIRONMENT="jjug-env"
+
 
 DOCKER_IMAGE=tyoshio2002/$APPLICATION_NAME
 DOCKER_REPOSITORY=yoshio.azurecr.io
@@ -37,9 +38,52 @@ docker push $DOCKER_REPOSITORY/$DOCKER_IMAGE:$VERSION
 #   --dapr-app-port 8080 \
 #   --dapr-app-id $APPLICATION_NAME
 
+# Set Revision Mode to Multiple
+# az containerapp revision set-mode --mode multiple  --name $APPLICATION_NAME  \
+#   --resource-group  $RESOURCE_GROUP
+
+OLD_BACKEND_RELEASE_NAME=$(az containerapp revision list \
+  -n $APPLICATION_NAME \
+  --resource-group $RESOURCE_GROUP --query "[?properties.active == \`true\`].name" -o tsv)
+
+echo "OLD Revision Name: " $OLD_BACKEND_RELEASE_NAME
+echo "export OLD_BACKEND_RELEASE_NAME=" $OLD_BACKEND_RELEASE_NAME
+
 # Update Azure Container Apps Instance
-az containerapp update \
+echo "Updating the Container Apps Instance ..."
+CONTAINERAPP_UPDATE=$(az containerapp update \
  --name $APPLICATION_NAME \
  --resource-group $RESOURCE_GROUP \
- --image $DOCKER_REPOSITORY/$DOCKER_IMAGE:$VERSION
+ --image $DOCKER_REPOSITORY/$DOCKER_IMAGE:$VERSION)
 
+echo $CONTAINERAPP_UPDATE
+
+# Set Application Routing Ratio
+echo "Configure Ingress Traffic Ratio ..."
+CONFIGURE_INGRESS=$(az containerapp ingress traffic set \
+  --name $APPLICATION_NAME \
+  --resource-group  $RESOURCE_GROUP \
+  --revision-weight \
+  $OLD_BACKEND_RELEASE_NAME=80 \
+  latest=20)
+
+echo $CONFIGURE_INGRESS
+
+# Show Current Revision
+az containerapp revision list \
+  -n $APPLICATION_NAME \
+  --resource-group $RESOURCE_GROUP -o table
+
+
+# Set 100% Application Route to Latest Version
+# az containerapp ingress traffic set \
+#   --name $APPLICATION_NAME \
+#   --resource-group  $RESOURCE_GROUP \
+#   --revision-weight \
+#   latest=100
+
+# De-Activated the OLD Revision
+# az containerapp revision deactivate \
+#   --revision $OLD_BACKEND_RELEASE_NAME \
+#   --name $APPLICATION_NAME  \
+#   --resource-group  $RESOURCE_GROUP
